@@ -170,10 +170,7 @@ async function analyzeScreenshot() {
   setMessage("Analyzing screenshot...");
   const base64Image = await fileToBase64(file);
 
-  const prompt = `Extract visible information from this uploaded LinkedIn screenshot ONLY. Do not infer unknown facts.
-Return strict JSON with keys:
-manager_name, company_name, role_title, sap_hiring_context, confidence_notes.
-Use empty strings for missing fields.`;
+  const prompt = "Extract manager name, company, role, and SAP context from this LinkedIn screenshot.";
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -184,7 +181,15 @@ Use empty strings for missing fields.`;
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
-        input: [{ role: "user", content: [{ type: "input_text", text: prompt }, { type: "input_image", image_url: `data:${file.type};base64,${base64Image}` }] }],
+        input: [
+          {
+            role: "user",
+            content: [
+              { type: "input_text", text: prompt },
+              { type: "input_image", image_url: `data:${file.type || "image/png"};base64,${base64Image}` },
+            ],
+          },
+        ],
         text: {
           format: {
             type: "json_schema",
@@ -206,10 +211,26 @@ Use empty strings for missing fields.`;
       }),
     });
 
-    if (!response.ok) throw new Error(await response.text());
+    const rawBody = await response.text();
+    console.log("OpenAI Responses API status:", response.status);
+    console.log("OpenAI Responses API raw response:", rawBody);
 
-    const payload = await response.json();
-    const extracted = JSON.parse(payload.output_text);
+    let payload;
+    try {
+      payload = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      throw new Error(rawBody || "OpenAI returned a non-JSON response.");
+    }
+
+    if (!response.ok) {
+      const apiError = payload?.error?.message || payload?.message || rawBody || "OpenAI request failed.";
+      throw new Error(apiError);
+    }
+
+    const outputText = payload?.output_text || payload?.output?.[0]?.content?.find((item) => item.type === "output_text")?.text;
+    if (!outputText) throw new Error("OpenAI response did not include output_text.");
+
+    const extracted = JSON.parse(outputText);
 
     els.managerName.value = extracted.manager_name || "";
     els.companyName.value = extracted.company_name || "";
@@ -221,8 +242,8 @@ Use empty strings for missing fields.`;
     if (extracted.confidence_notes) msg += ` ${extracted.confidence_notes}`;
     setMessage(msg);
   } catch (error) {
-    console.error(error);
-    setMessage("Could not analyze screenshot. Check API key and image quality.");
+    console.error("Screenshot analysis error:", error);
+    setMessage(`Could not analyze screenshot: ${error?.message || "Unknown error."}`);
   }
 }
 
