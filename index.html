@@ -13,9 +13,19 @@
       <p class="muted">Upload a LinkedIn screenshot (manual upload only), add optional notes, and generate outreach specs.</p>
     </header>
 
+    <section class="card metrics-card">
+      <h2>Dashboard</h2>
+      <div id="dashboard" class="metrics-grid"></div>
+    </section>
+
     <section class="card due-card">
       <h2>Follow-ups Due Today</h2>
       <div id="dueToday" class="empty">No follow-ups due today.</div>
+    </section>
+
+    <section class="card overdue-card">
+      <h2>Overdue Follow-ups</h2>
+      <div id="overdueFollowups" class="empty">No overdue follow-ups.</div>
     </section>
 
     <section class="card">
@@ -26,7 +36,14 @@
       <p class="hint">Stored in your browser only (localStorage).</p>
 
       <label class="label" for="screenshot">LinkedIn Screenshot</label>
-      <input id="screenshot" type="file" accept="image/*" />
+      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Drop LinkedIn screenshot here or click to upload">
+        <p class="drop-zone-title">Drop LinkedIn screenshot here or click to upload</p>
+        <p class="hint">Accepted: PNG, JPG, JPEG, WEBP</p>
+        <img id="screenshotPreview" class="preview hidden" alt="LinkedIn screenshot preview" />
+        <p id="screenshotFilename" class="hint"></p>
+        <p id="screenshotError" class="error hidden"></p>
+      </div>
+      <input id="screenshot" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden-input" />
 
       <details>
         <summary>Optional typed notes</summary>
@@ -67,6 +84,13 @@
           <input id="roleTitle" type="text" placeholder="Head of SAP" />
         </div>
         <div>
+          <label class="label" for="emailAddress">Email address</label>
+          <input id="emailAddress" type="text" placeholder="manager@company.com" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
           <label class="label" for="detectedContext">Detected context (optional)</label>
           <input id="detectedContext" type="text" placeholder="Visible SAP hiring context" />
         </div>
@@ -80,13 +104,27 @@
     </section>
 
     <section class="card">
-      <div class="actions spread">
-        <h2>Today's Specs</h2>
-        <div>
+      <div class="actions spread wrap">
+        <h2>Tracker</h2>
+        <div class="actions wrap">
           <button id="exportBtn">Export CSV</button>
+          <button id="exportBackupBtn">Export JSON Backup</button>
+          <button id="importBtn">Import CSV/JSON</button>
+          <input id="importFile" type="file" class="hidden-input" accept=".csv,.json,application/json,text/csv" />
           <button id="clearBtn" class="danger">Clear / Reset Day</button>
         </div>
       </div>
+
+      <div class="filter-grid">
+        <input id="filterCompany" type="text" placeholder="Filter by company" />
+        <input id="filterManager" type="text" placeholder="Filter by manager" />
+        <input id="filterModule" type="text" placeholder="Filter by module" />
+        <select id="filterStatus">
+          <option value="">All statuses</option>
+        </select>
+        <label class="checkbox"><input id="filterDueToday" type="checkbox" /> Due today only</label>
+      </div>
+
       <div id="specList" class="list"></div>
     </section>
   </main>
