@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BD Spec Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>BD Spec Generator</h1>
+      <p class="muted">Upload a LinkedIn screenshot (manual upload only), add optional notes, and generate outreach specs.</p>
+    </header>
+
+    <section class="card due-card">
+      <h2>Follow-ups Due Today</h2>
+      <div id="dueToday" class="empty">No follow-ups due today.</div>
+    </section>
+
+    <section class="card">
+      <h2>New Spec</h2>
+
+      <label class="label" for="apiKey">OpenAI API Key</label>
+      <input id="apiKey" type="password" placeholder="sk-..." />
+      <p class="hint">Stored in your browser only (localStorage).</p>
+
+      <label class="label" for="screenshot">LinkedIn Screenshot</label>
+      <input id="screenshot" type="file" accept="image/*" />
+
+      <details>
+        <summary>Optional typed notes</summary>
+        <div class="grid2">
+          <div>
+            <label class="label" for="moduleFocus">SAP module focus</label>
+            <input id="moduleFocus" type="text" placeholder="SAP FI/CO" />
+          </div>
+          <div>
+            <label class="label" for="targetCountry">Target country</label>
+            <input id="targetCountry" type="text" placeholder="France" />
+          </div>
+          <div>
+            <label class="label" for="candidateType">Candidate type</label>
+            <input id="candidateType" type="text" placeholder="Freelance SAP FI/CO Consultant" />
+          </div>
+          <div>
+            <label class="label" for="marketContext">Market/programme context</label>
+            <input id="marketContext" type="text" placeholder="S/4HANA Finance programme" />
+          </div>
+        </div>
+      </details>
+
+      <div class="grid2">
+        <div>
+          <label class="label" for="managerName">Manager name</label>
+          <input id="managerName" type="text" placeholder="Required if not detected" />
+        </div>
+        <div>
+          <label class="label" for="companyName">Company name</label>
+          <input id="companyName" type="text" placeholder="Required if not detected" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label class="label" for="roleTitle">Role/title (optional)</label>
+          <input id="roleTitle" type="text" placeholder="Head of SAP" />
+        </div>
+        <div>
+          <label class="label" for="detectedContext">Detected context (optional)</label>
+          <input id="detectedContext" type="text" placeholder="Visible SAP hiring context" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="analyzeBtn">Analyze Screenshot</button>
+        <button id="generateBtn" class="primary">Generate Spec</button>
+      </div>
+      <p id="analysisMessage" class="hint"></p>
+    </section>
+
+    <section class="card">
+      <div class="actions spread">
+        <h2>Today's Specs</h2>
+        <div>
+          <button id="exportBtn">Export CSV</button>
+          <button id="clearBtn" class="danger">Clear / Reset Day</button>
+        </div>
+      </div>
+      <div id="specList" class="list"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
