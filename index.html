@@ -10,26 +10,22 @@
   <main class="container">
     <header>
       <h1>BD Spec Generator</h1>
-      <p class="muted">Upload a LinkedIn screenshot (manual upload only), add optional notes, and generate outreach specs.</p>
+      <p class="muted">Action-focused BD workflow: capture, send, and follow up without extra tracking overhead.</p>
     </header>
 
-    <section class="card metrics-card">
-      <h2>Dashboard</h2>
-      <div id="dashboard" class="metrics-grid"></div>
-    </section>
-
-    <section class="card due-card">
-      <h2>Follow-ups Due Today</h2>
-      <div id="dueToday" class="empty">No follow-ups due today.</div>
-    </section>
-
-    <section class="card overdue-card">
-      <h2>Overdue Follow-ups</h2>
-      <div id="overdueFollowups" class="empty">No overdue follow-ups.</div>
+    <section class="card priority-card">
+      <div class="section-head">
+        <h2>Today's Actions</h2>
+        <p class="hint">Only what needs attention now: due today + overdue follow-ups.</p>
+      </div>
+      <div id="todaysActions" class="action-list"></div>
     </section>
 
     <section class="card">
-      <h2>New Spec</h2>
+      <div class="section-head">
+        <h2>Capture Mode</h2>
+        <p class="hint">Upload screenshot, generate spec, saved automatically as draft.</p>
+      </div>
 
       <label class="label" for="apiKey">OpenAI API Key</label>
       <input id="apiKey" type="password" placeholder="sk-..." />
@@ -37,7 +33,7 @@
 
       <label class="label" for="screenshot">LinkedIn Screenshot</label>
       <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Drop LinkedIn screenshot here or click to upload">
-        <p class="drop-zone-title">Drop LinkedIn screenshot here or click to upload</p>
+        <p class="drop-zone-title">Drag and drop screenshot, or click to upload</p>
         <p class="hint">Accepted: PNG, JPG, JPEG, WEBP</p>
         <img id="screenshotPreview" class="preview hidden" alt="LinkedIn screenshot preview" />
         <p id="screenshotFilename" class="hint"></p>
@@ -104,28 +100,28 @@
     </section>
 
     <section class="card">
+      <div class="section-head">
+        <h2>Drafts</h2>
+        <p class="hint">All unsent specs. Only action: send first email.</p>
+      </div>
+      <div id="draftList" class="list"></div>
+    </section>
+
+    <section class="card">
       <div class="actions spread wrap">
-        <h2>Tracker</h2>
+        <div class="section-head compact">
+          <h2>Sent Specs</h2>
+          <p class="hint">History with sent date, next follow-up date, and current status.</p>
+        </div>
         <div class="actions wrap">
           <button id="exportBtn">Export CSV</button>
           <button id="exportBackupBtn">Export JSON Backup</button>
           <button id="importBtn">Import CSV/JSON</button>
           <input id="importFile" type="file" class="hidden-input" accept=".csv,.json,application/json,text/csv" />
-          <button id="clearBtn" class="danger">Clear / Reset Day</button>
+          <button id="clearBtn" class="danger">Clear All</button>
         </div>
       </div>
-
-      <div class="filter-grid">
-        <input id="filterCompany" type="text" placeholder="Filter by company" />
-        <input id="filterManager" type="text" placeholder="Filter by manager" />
-        <input id="filterModule" type="text" placeholder="Filter by module" />
-        <select id="filterStatus">
-          <option value="">All statuses</option>
-        </select>
-        <label class="checkbox"><input id="filterDueToday" type="checkbox" /> Due today only</label>
-      </div>
-
-      <div id="specList" class="list"></div>
+      <div id="sentList" class="list"></div>
     </section>
   </main>
 

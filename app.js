@@ -5,17 +5,10 @@ const API_KEY_KEY = "bdSpecGenerator.openaiApiKey";
 const STATUS = {
   DRAFT: "Draft",
   SENT: "Sent",
-  FOLLOWUP1_DUE: "Follow-up 1 due",
-  FOLLOWUP1_SENT: "Follow-up 1 sent",
-  FOLLOWUP2_DUE: "Follow-up 2 due",
-  FOLLOWUP2_SENT: "Follow-up 2 sent",
-  FINAL_DUE: "Final follow-up due",
-  CLOSED: "Closed",
-  REPLIED: "Replied",
 };
 
-const STATUS_OPTIONS = Object.values(STATUS);
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const FOLLOW_UP_OFFSETS = [2, 5, 9];
 
 const defaults = {
   moduleFocus: "SAP FI/CO",
@@ -28,7 +21,6 @@ const state = {
   specs: loadSpecs(),
   selectedFile: null,
   selectedFilename: "",
-  filters: { company: "", manager: "", module: "", status: "", dueTodayOnly: false },
 };
 
 const els = {
@@ -50,20 +42,14 @@ const els = {
   analyzeBtn: document.getElementById("analyzeBtn"),
   generateBtn: document.getElementById("generateBtn"),
   analysisMessage: document.getElementById("analysisMessage"),
-  specList: document.getElementById("specList"),
+  todaysActions: document.getElementById("todaysActions"),
+  draftList: document.getElementById("draftList"),
+  sentList: document.getElementById("sentList"),
   exportBtn: document.getElementById("exportBtn"),
   exportBackupBtn: document.getElementById("exportBackupBtn"),
   importBtn: document.getElementById("importBtn"),
   importFile: document.getElementById("importFile"),
   clearBtn: document.getElementById("clearBtn"),
-  dueToday: document.getElementById("dueToday"),
-  overdueFollowups: document.getElementById("overdueFollowups"),
-  dashboard: document.getElementById("dashboard"),
-  filterCompany: document.getElementById("filterCompany"),
-  filterManager: document.getElementById("filterManager"),
-  filterModule: document.getElementById("filterModule"),
-  filterStatus: document.getElementById("filterStatus"),
-  filterDueToday: document.getElementById("filterDueToday"),
 };
 
 init();
@@ -103,20 +89,9 @@ function init() {
   els.importFile.addEventListener("change", importBackup);
   els.clearBtn.addEventListener("click", clearDay);
 
-  els.filterCompany.addEventListener("input", () => updateFilters("company", els.filterCompany.value));
-  els.filterManager.addEventListener("input", () => updateFilters("manager", els.filterManager.value));
-  els.filterModule.addEventListener("input", () => updateFilters("module", els.filterModule.value));
-  els.filterStatus.addEventListener("change", () => updateFilters("status", els.filterStatus.value));
-  els.filterDueToday.addEventListener("change", () => updateFilters("dueTodayOnly", els.filterDueToday.checked));
-
-  renderStatusFilter();
   normalizeAllStatuses();
   persistSpecs();
   render();
-}
-
-function renderStatusFilter() {
-  els.filterStatus.innerHTML = `<option value="">All statuses</option>${STATUS_OPTIONS.map((status) => `<option value="${status}">${status}</option>`).join("")}`;
 }
 
 function setScreenshotFile(file) {
@@ -212,9 +187,6 @@ async function analyzeScreenshot() {
     });
 
     const rawBody = await response.text();
-    console.log("OpenAI Responses API status:", response.status);
-    console.log("OpenAI Responses API raw response:", rawBody);
-
     let payload;
     try {
       payload = rawBody ? JSON.parse(rawBody) : {};
@@ -242,7 +214,6 @@ async function analyzeScreenshot() {
     if (extracted.confidence_notes) msg += ` ${extracted.confidence_notes}`;
     setMessage(msg);
   } catch (error) {
-    console.error("Screenshot analysis error:", error);
     setMessage(`Could not analyze screenshot: ${error?.message || "Unknown error."}`);
   }
 }
@@ -265,54 +236,13 @@ function generateSpec() {
   const introContext = detectedContext || marketContext;
   const roleHint = roleTitle ? ` in your role as ${roleTitle}` : "";
 
-  const mainEmail = `Hi ${managerName},
+  const mainEmail = `Hi ${managerName},\n\nPlease excuse the direct approach. While supporting another manufacturing client currently delivering an ${marketContext} in ${targetCountry}, I understand that ${companyName} are continuing to strengthen their SAP Finance capabilities, particularly across ${moduleFocus} within S/4 environments${roleHint}.\n\nI wanted to share a consultant who has recently become available and could be relevant depending on your current or upcoming initiatives.\n\nAvailability – ${defaults.availability}\nLocation – ${defaults.location}\n\n- 10+ years' ${moduleFocus} experience, with 5+ years specifically on S/4HANA Finance programmes\n- Strong delivery across multiple S/4HANA implementations (greenfield and brownfield), including Central Finance and Group Reporting\n- Deep expertise across GL, AP/AR, Asset Accounting, and COPA, with strong integration into SD/MM\n- Experience working within SI-led programmes (Capgemini, Deloitte) on large-scale European rollouts\n- Proven track record supporting finance transformation projects in manufacturing environments, including blueprinting, testing, and post go-live support\n\nHe is available immediately and would be able to interview this week (Mon–Fri, 09:00–15:00 CET).\n\nWould it make sense to share the full profile?\n\nBest regards,\nJoe`;
 
-Please excuse the direct approach. While supporting another manufacturing client currently delivering an ${marketContext} in ${targetCountry}, I understand that ${companyName} are continuing to strengthen their SAP Finance capabilities, particularly across ${moduleFocus} within S/4 environments${roleHint}.
+  const followUp1 = `Hi ${managerName},\n\nJust wanted to follow up on the SAP ${moduleFocus} profile I shared earlier this week.\n\nIs this not the type of consultant you are currently looking for, or is it simply a matter of timing?\n\nEither way, it would be helpful for me to understand so I can keep future outreach relevant.\n\nBest regards,\nJoe`;
 
-I wanted to share a consultant who has recently become available and could be relevant depending on your current or upcoming initiatives.
+  const followUp2 = `Hi ${managerName},\n\nJust checking whether this SAP ${moduleFocus} profile could be relevant for any current or upcoming S/4HANA work at ${companyName}.\n\nIf not, no problem — I’d appreciate knowing so I can avoid sending anything that’s not aligned.\n\nBest regards,\nJoe`;
 
-Availability – ${defaults.availability}
-Location – ${defaults.location}
-
-- 10+ years' ${moduleFocus} experience, with 5+ years specifically on S/4HANA Finance programmes
-- Strong delivery across multiple S/4HANA implementations (greenfield and brownfield), including Central Finance and Group Reporting
-- Deep expertise across GL, AP/AR, Asset Accounting, and COPA, with strong integration into SD/MM
-- Experience working within SI-led programmes (Capgemini, Deloitte) on large-scale European rollouts
-- Proven track record supporting finance transformation projects in manufacturing environments, including blueprinting, testing, and post go-live support
-
-He is available immediately and would be able to interview this week (Mon–Fri, 09:00–15:00 CET).
-
-Would it make sense to share the full profile?
-
-Best regards,
-Joe`;
-
-  const followUp1 = `Hi ${managerName},
-
-Just wanted to follow up on the SAP ${moduleFocus} profile I shared earlier this week.
-
-Is this not the type of consultant you are currently looking for, or is it simply a matter of timing?
-
-Either way, it would be helpful for me to understand so I can keep future outreach relevant.
-
-Best regards,
-Joe`;
-
-  const followUp2 = `Hi ${managerName},
-
-Just checking whether this SAP ${moduleFocus} profile could be relevant for any current or upcoming S/4HANA work at ${companyName}.
-
-If not, no problem — I’d appreciate knowing so I can avoid sending anything that’s not aligned.
-
-Best regards,
-Joe`;
-
-  const finalFollowUp = `Hi ${managerName},
-
-As I haven’t heard back, should I assume this profile isn’t relevant at the moment?
-
-Best regards,
-Joe`;
+  const finalFollowUp = `Hi ${managerName},\n\nAs I haven’t heard back, should I assume this profile isn’t relevant at the moment?\n\nBest regards,\nJoe`;
 
   const now = new Date();
   const spec = {
@@ -338,90 +268,83 @@ Joe`;
     followUp1SentDate: "",
     followUp2SentDate: "",
     finalFollowUpSentDate: "",
-    closedAt: "",
-    repliedAt: "",
+    followUpSchedule: null,
     status: STATUS.DRAFT,
   };
 
   state.specs.unshift(spec);
   persistSpecs();
   render();
-  setMessage("Spec generated and saved to Tracker.");
+  setMessage("Spec generated and saved as Draft.");
 }
 
 function render() {
   normalizeAllStatuses();
-  renderDashboard();
-  renderDueToday();
-  renderOverdue();
+  renderTodaysActions();
+  renderDrafts();
+  renderSentSpecs();
+}
 
-  const specs = getFilteredSpecs();
-  if (!specs.length) {
-    els.specList.innerHTML = `<p class="empty">No matching specs.</p>`;
+function renderTodaysActions() {
+  const actions = getActionableFollowUps();
+  if (!actions.length) {
+    els.todaysActions.innerHTML = `<p class="empty">No follow-ups due today or overdue.</p>`;
     return;
   }
 
-  els.specList.innerHTML = specs.map((spec) => {
-    const dueInfo = getDueInfo(spec);
-    return `<article class="spec-item">
-      <div class="spec-head"><strong>${escapeHtml(spec.managerName)} @ ${escapeHtml(spec.companyName)}</strong><span class="badge">${escapeHtml(spec.status)}</span></div>
-      <p class="hint">Created: ${spec.dateCreated || isoDate(new Date(spec.createdAt))}${spec.dateSent ? ` | Sent: ${spec.dateSent}` : ""}${dueInfo ? ` | ${dueInfo}` : ""}</p>
-      <p class="hint">Role: ${escapeHtml(spec.roleTitle || "-")} | Email: ${escapeHtml(spec.emailAddress || "-")} | Module: ${escapeHtml(spec.moduleFocus)}</p>
-      <p class="hint">Screenshot: ${escapeHtml(spec.screenshotFilename || "-")}</p>
-
-      ${renderOutput("Main Spec Email", spec.mainEmail, spec.id, "main")}
-      ${renderOutput("Follow-up 1", spec.followUp1, spec.id, "f1")}
-      ${renderOutput("Follow-up 2", spec.followUp2, spec.id, "f2")}
-      ${renderOutput("Final Follow-up", spec.finalFollowUp, spec.id, "f3")}
-
+  els.todaysActions.innerHTML = actions.map(({ spec, step, dueDate, overdue }) => {
+    const key = step === 1 ? "f1" : step === 2 ? "f2" : "f3";
+    return `<article class="task-item ${overdue ? "overdue" : ""}">
+      <div>
+        <div class="task-title">${escapeHtml(spec.managerName)} @ ${escapeHtml(spec.companyName)}</div>
+        <p class="hint">${followUpLabel(step)} due ${escapeHtml(dueDate)} ${overdue ? "(Overdue)" : "(Today)"}</p>
+      </div>
       <div class="actions wrap">
-        ${!spec.dateSent ? `<button onclick="markSent('${spec.id}')">Mark as Sent</button>` : ""}
-        ${canSendFollowUp1(spec) ? `<button onclick="markFollowUpSent('${spec.id}',1)">Mark Follow-up 1 Sent</button>` : ""}
-        ${canSendFollowUp2(spec) ? `<button onclick="markFollowUpSent('${spec.id}',2)">Mark Follow-up 2 Sent</button>` : ""}
-        ${canSendFinalFollowUp(spec) ? `<button onclick="markFollowUpSent('${spec.id}',3)">Mark Final Follow-up Sent</button>` : ""}
-        ${spec.status !== STATUS.REPLIED ? `<button onclick="markReplied('${spec.id}')">Mark as Replied</button>` : ""}
-        ${spec.status !== STATUS.CLOSED ? `<button onclick="markClosed('${spec.id}')">Close</button>` : ""}
+        <button onclick="copyField('${spec.id}','${key}')">Copy</button>
+        <button class="primary" onclick="markFollowUpSent('${spec.id}',${step})">Mark as sent</button>
       </div>
     </article>`;
   }).join("");
 }
 
-function renderDashboard() {
-  const today = isoDate(new Date());
-  const metrics = [
-    ["Specs created today", state.specs.filter((s) => s.dateCreated === today).length],
-    ["Specs sent today", state.specs.filter((s) => s.dateSent === today).length],
-    ["Follow-ups due today", dueTodaySpecs().length],
-    ["Overdue follow-ups", overdueSpecs().length],
-    ["Replies logged", state.specs.filter((s) => s.status === STATUS.REPLIED).length],
-    ["Open specs", state.specs.filter((s) => ![STATUS.REPLIED, STATUS.CLOSED].includes(s.status)).length],
-  ];
+function renderDrafts() {
+  const drafts = state.specs.filter((spec) => !spec.dateSent);
+  if (!drafts.length) {
+    els.draftList.innerHTML = `<p class="empty">No drafts waiting to send.</p>`;
+    return;
+  }
 
-  els.dashboard.innerHTML = metrics.map(([label, value]) => `<div class="metric"><div class="metric-value">${value}</div><div class="hint">${label}</div></div>`).join("");
+  els.draftList.innerHTML = drafts.map((spec) => `<article class="spec-item">
+      <div class="spec-head"><strong>${escapeHtml(spec.managerName)}</strong><span class="badge">${escapeHtml(spec.moduleFocus)}</span></div>
+      <p class="hint">${escapeHtml(spec.companyName)}</p>
+      <div class="output-block">
+        <p class="output-title">Email Preview</p>
+        <div class="output-text preview-text">${escapeHtml(spec.mainEmail.slice(0, 260))}${spec.mainEmail.length > 260 ? "..." : ""}</div>
+      </div>
+      <div class="actions wrap">
+        <button onclick="copyField('${spec.id}','main')">Copy Email</button>
+        <button class="primary" onclick="markSent('${spec.id}')">Mark as Sent</button>
+      </div>
+    </article>`).join("");
 }
 
-function renderDueToday() {
-  const due = dueTodaySpecs();
-  if (!due.length) return (els.dueToday.innerHTML = "No follow-ups due today.");
+function renderSentSpecs() {
+  const sent = state.specs.filter((spec) => !!spec.dateSent);
+  if (!sent.length) {
+    els.sentList.innerHTML = `<p class="empty">No sent specs yet.</p>`;
+    return;
+  }
 
-  els.dueToday.innerHTML = due.map((spec) => {
-    const dueType = getDueType(spec);
-    const key = dueType === 1 ? "f1" : dueType === 2 ? "f2" : "f3";
-    const label = dueType === 1 ? "Follow-up 1" : dueType === 2 ? "Follow-up 2" : "Final follow-up";
-    return `<div class="due-item"><strong>${escapeHtml(spec.managerName)}</strong> @ ${escapeHtml(spec.companyName)}<br/>Module: ${escapeHtml(spec.moduleFocus)}<br/>Due: ${label}
-      <div class="actions"><button onclick="copyField('${spec.id}','${key}')">Copy ${label} Email</button><button onclick="markFollowUpSent('${spec.id}',${dueType})">Mark as Sent</button></div></div>`;
-  }).join("");
-}
-
-function renderOverdue() {
-  const overdue = overdueSpecs();
-  if (!overdue.length) return (els.overdueFollowups.innerHTML = "No overdue follow-ups.");
-
-  els.overdueFollowups.innerHTML = overdue.map((spec) => {
-    const dueType = getDueType(spec);
-    const label = dueType === 1 ? "Follow-up 1" : dueType === 2 ? "Follow-up 2" : "Final follow-up";
-    const dueDate = dueType === 1 ? getDueDate(spec, 2) : dueType === 2 ? getDueDate(spec, 5) : getDueDate(spec, 9);
-    return `<div class="due-item overdue"><strong>${escapeHtml(spec.managerName)}</strong> @ ${escapeHtml(spec.companyName)}<br/>${label} overdue since ${dueDate}</div>`;
+  els.sentList.innerHTML = sent.map((spec) => {
+    const next = getNextFollowUp(spec);
+    const nextDate = next ? getDueDate(spec, FOLLOW_UP_OFFSETS[next - 1]) : "-";
+    return `<article class="spec-item">
+      <div class="spec-head"><strong>${escapeHtml(spec.managerName)} @ ${escapeHtml(spec.companyName)}</strong><span class="badge">${escapeHtml(getSpecStatusText(spec))}</span></div>
+      <p class="hint">Sent date: ${escapeHtml(spec.dateSent)} | Next follow-up date: ${escapeHtml(nextDate)}</p>
+      <div class="actions wrap">
+        <button onclick="copyField('${spec.id}','main')">Copy Original Email</button>
+      </div>
+    </article>`;
   }).join("");
 }
 
@@ -430,6 +353,11 @@ function markSent(id) {
   if (!spec) return;
   const now = isoDate(new Date());
   spec.dateSent = now;
+  spec.followUpSchedule = {
+    followUp1Due: getDueDate({ dateSent: now }, 2),
+    followUp2Due: getDueDate({ dateSent: now }, 5),
+    followUp3Due: getDueDate({ dateSent: now }, 9),
+  };
   spec.status = STATUS.SENT;
   persistSpecs();
   render();
@@ -439,113 +367,56 @@ function markFollowUpSent(id, step) {
   const spec = state.specs.find((s) => s.id === id);
   if (!spec || !spec.dateSent) return;
   const now = isoDate(new Date());
-  if (step === 1) {
-    spec.followUp1SentDate = now;
-    spec.status = STATUS.FOLLOWUP1_SENT;
-  }
-  if (step === 2) {
-    spec.followUp2SentDate = now;
-    spec.status = STATUS.FOLLOWUP2_SENT;
-  }
-  if (step === 3) {
-    spec.finalFollowUpSentDate = now;
-    spec.status = STATUS.CLOSED;
-  }
+  if (step === 1) spec.followUp1SentDate = now;
+  if (step === 2) spec.followUp2SentDate = now;
+  if (step === 3) spec.finalFollowUpSentDate = now;
+  spec.status = STATUS.SENT;
   persistSpecs();
   render();
 }
 
-function markReplied(id) {
-  const spec = state.specs.find((s) => s.id === id);
-  if (!spec) return;
-  spec.repliedAt = isoDate(new Date());
-  spec.status = STATUS.REPLIED;
-  persistSpecs();
-  render();
+function getNextFollowUp(spec) {
+  if (!spec.dateSent) return 0;
+  if (!spec.followUp1SentDate) return 1;
+  if (!spec.followUp2SentDate) return 2;
+  if (!spec.finalFollowUpSentDate) return 3;
+  return 0;
 }
 
-function markClosed(id) {
-  const spec = state.specs.find((s) => s.id === id);
-  if (!spec) return;
-  spec.closedAt = isoDate(new Date());
-  spec.status = STATUS.CLOSED;
-  persistSpecs();
-  render();
+function getActionableFollowUps() {
+  const today = isoDate(new Date());
+  return state.specs
+    .map((spec) => {
+      const step = getNextFollowUp(spec);
+      if (!step) return null;
+      const dueDate = getDueDate(spec, FOLLOW_UP_OFFSETS[step - 1]);
+      if (dueDate > today) return null;
+      return { spec, step, dueDate, overdue: dueDate < today };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
-function canSendFollowUp1(spec) { return !!spec.dateSent && !spec.followUp1SentDate && !isClosedOrReplied(spec); }
-function canSendFollowUp2(spec) { return !!spec.dateSent && !!spec.followUp1SentDate && !spec.followUp2SentDate && !isClosedOrReplied(spec); }
-function canSendFinalFollowUp(spec) { return !!spec.dateSent && !!spec.followUp2SentDate && !spec.finalFollowUpSentDate && !isClosedOrReplied(spec); }
+function followUpLabel(step) {
+  if (step === 1) return "Follow-up +2d";
+  if (step === 2) return "Follow-up +5d";
+  return "Follow-up +9d";
+}
 
-function isClosedOrReplied(spec) {
-  return [STATUS.CLOSED, STATUS.REPLIED].includes(spec.status);
+function getSpecStatusText(spec) {
+  const step = getNextFollowUp(spec);
+  if (!step) return "All follow-ups sent";
+  const dueDate = getDueDate(spec, FOLLOW_UP_OFFSETS[step - 1]);
+  const today = isoDate(new Date());
+  if (dueDate < today) return `${followUpLabel(step)} overdue`;
+  if (dueDate === today) return `${followUpLabel(step)} due today`;
+  return `Waiting for ${followUpLabel(step)}`;
 }
 
 function getDueDate(spec, daysAfterSent) {
   const d = new Date(spec.dateSent);
   d.setDate(d.getDate() + daysAfterSent);
   return isoDate(d);
-}
-
-function getDueType(spec) {
-  if (!spec.dateSent || isClosedOrReplied(spec)) return 0;
-  const today = isoDate(new Date());
-  const f1Due = getDueDate(spec, 2);
-  const f2Due = getDueDate(spec, 5);
-  const f3Due = getDueDate(spec, 9);
-
-  if (!spec.followUp1SentDate && today >= f1Due) return 1;
-  if (spec.followUp1SentDate && !spec.followUp2SentDate && today >= f2Due) return 2;
-  if (spec.followUp2SentDate && !spec.finalFollowUpSentDate && today >= f3Due) return 3;
-  return 0;
-}
-
-function getDueInfo(spec) {
-  if (!spec.dateSent || isClosedOrReplied(spec)) return "";
-  if (!spec.followUp1SentDate) return `Follow-up 1 due: ${getDueDate(spec, 2)}`;
-  if (!spec.followUp2SentDate) return `Follow-up 2 due: ${getDueDate(spec, 5)}`;
-  if (!spec.finalFollowUpSentDate) return `Final follow-up due: ${getDueDate(spec, 9)}`;
-  return "";
-}
-
-function dueTodaySpecs() {
-  const today = isoDate(new Date());
-  return state.specs.filter((s) => {
-    const dueType = getDueType(s);
-    if (!dueType) return false;
-    const dueDate = dueType === 1 ? getDueDate(s, 2) : dueType === 2 ? getDueDate(s, 5) : getDueDate(s, 9);
-    return dueDate === today;
-  });
-}
-
-function overdueSpecs() {
-  const today = isoDate(new Date());
-  return state.specs.filter((s) => {
-    const dueType = getDueType(s);
-    if (!dueType) return false;
-    const dueDate = dueType === 1 ? getDueDate(s, 2) : dueType === 2 ? getDueDate(s, 5) : getDueDate(s, 9);
-    return dueDate < today;
-  });
-}
-
-function updateFilters(key, value) {
-  state.filters[key] = value;
-  render();
-}
-
-function getFilteredSpecs() {
-  return state.specs.filter((s) => {
-    const byCompany = s.companyName.toLowerCase().includes(state.filters.company.toLowerCase());
-    const byManager = s.managerName.toLowerCase().includes(state.filters.manager.toLowerCase());
-    const byModule = s.moduleFocus.toLowerCase().includes(state.filters.module.toLowerCase());
-    const byStatus = !state.filters.status || s.status === state.filters.status;
-    const byDueToday = !state.filters.dueTodayOnly || dueTodaySpecs().some((d) => d.id === s.id);
-    return byCompany && byManager && byModule && byStatus && byDueToday;
-  });
-}
-
-function renderOutput(title, text, id, key) {
-  return `<div class="output-block"><p class="output-title">${title}</p><div class="output-text">${escapeHtml(text)}</div><div class="copy-row"><button onclick="copyField('${id}','${key}')">Copy ${title}</button></div></div>`;
 }
 
 function copyField(id, key) {
@@ -557,8 +428,8 @@ function copyField(id, key) {
 
 function exportCsv() {
   if (!state.specs.length) return setMessage("No specs to export.");
-  const rows = [["id","manager_name","company","role_title","linkedin_screenshot_filename","email_address","module_focus","main_spec_email","follow_up_1","follow_up_2","final_follow_up","date_created","date_sent","status","follow_up_1_sent_date","follow_up_2_sent_date","final_follow_up_sent_date","replied_at","closed_at"]
-    , ...state.specs.map((s) => [s.id,s.managerName,s.companyName,s.roleTitle,s.screenshotFilename,s.emailAddress,s.moduleFocus,s.mainEmail,s.followUp1,s.followUp2,s.finalFollowUp,s.dateCreated,s.dateSent,s.status,s.followUp1SentDate,s.followUp2SentDate,s.finalFollowUpSentDate,s.repliedAt,s.closedAt])];
+  const rows = [["id","manager_name","company","role_title","linkedin_screenshot_filename","email_address","module_focus","main_spec_email","follow_up_1","follow_up_2","final_follow_up","date_created","date_sent","status","follow_up_1_sent_date","follow_up_2_sent_date","final_follow_up_sent_date"]
+    , ...state.specs.map((s) => [s.id,s.managerName,s.companyName,s.roleTitle,s.screenshotFilename,s.emailAddress,s.moduleFocus,s.mainEmail,s.followUp1,s.followUp2,s.finalFollowUp,s.dateCreated,s.dateSent,s.status,s.followUp1SentDate,s.followUp2SentDate,s.finalFollowUpSentDate])];
   downloadFile(rows.map((r) => r.map(csvCell).join(",")).join("\n"), `bd-tracker-${isoDate(new Date())}.csv`, "text/csv;charset=utf-8;");
 }
 
@@ -591,7 +462,7 @@ async function importBackup(event) {
 }
 
 function clearDay() {
-  if (!confirm("This will permanently clear all tracker records for this browser. Continue?")) return;
+  if (!confirm("This will permanently clear all records for this browser. Continue?")) return;
   state.specs = [];
   persistSpecs();
   render();
@@ -652,9 +523,8 @@ function normalizeSpec(raw) {
     followUp1SentDate: raw.followUp1SentDate || raw.follow_up_1_sent_date || "",
     followUp2SentDate: raw.followUp2SentDate || raw.follow_up_2_sent_date || "",
     finalFollowUpSentDate: raw.finalFollowUpSentDate || raw.final_follow_up_sent_date || "",
-    repliedAt: raw.repliedAt || raw.replied_at || "",
-    closedAt: raw.closedAt || raw.closed_at || "",
-    status: raw.status || STATUS.DRAFT,
+    followUpSchedule: raw.followUpSchedule || null,
+    status: raw.status || (raw.dateSent || raw.date_sent ? STATUS.SENT : STATUS.DRAFT),
   };
 
   if (!spec.managerName || !spec.companyName) return null;
@@ -667,28 +537,14 @@ function normalizeAllStatuses() {
 }
 
 function normalizeStatus(spec) {
-  if (spec.status === STATUS.REPLIED || spec.status === STATUS.CLOSED) return;
-  if (!spec.dateSent) {
-    spec.status = STATUS.DRAFT;
-    return;
+  spec.status = spec.dateSent ? STATUS.SENT : STATUS.DRAFT;
+  if (spec.dateSent && !spec.followUpSchedule) {
+    spec.followUpSchedule = {
+      followUp1Due: getDueDate(spec, 2),
+      followUp2Due: getDueDate(spec, 5),
+      followUp3Due: getDueDate(spec, 9),
+    };
   }
-  if (spec.finalFollowUpSentDate) {
-    spec.status = STATUS.CLOSED;
-    return;
-  }
-  if (spec.followUp2SentDate) {
-    spec.status = isDateDue(getDueDate(spec, 9)) ? STATUS.FINAL_DUE : STATUS.FOLLOWUP2_SENT;
-    return;
-  }
-  if (spec.followUp1SentDate) {
-    spec.status = isDateDue(getDueDate(spec, 5)) ? STATUS.FOLLOWUP2_DUE : STATUS.FOLLOWUP1_SENT;
-    return;
-  }
-  spec.status = isDateDue(getDueDate(spec, 2)) ? STATUS.FOLLOWUP1_DUE : STATUS.SENT;
-}
-
-function isDateDue(date) {
-  return date <= isoDate(new Date());
 }
 
 function loadSpecs() {
@@ -745,6 +601,4 @@ function escapeHtml(text) {
 
 window.markSent = markSent;
 window.markFollowUpSent = markFollowUpSent;
-window.markReplied = markReplied;
-window.markClosed = markClosed;
 window.copyField = copyField;
